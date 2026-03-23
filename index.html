@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de Prueba de Hipótesis</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1a2e;
+    --paper: #faf7f2;
+    --cream: #f0ebe0;
+    --gold: #c9a84c;
+    --accept: #1e6b45;
+    --reject: #8b1a1a;
+    --accept-bg: #e8f5ee;
+    --reject-bg: #fdf0f0;
+    --muted: #6b6560;
+    --border: #d4c9b8;
+    --shadow: rgba(26,26,46,0.12);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Source Serif 4', Georgia, serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 0 0 60px;
+  }
+  header {
+    background: var(--ink);
+    padding: 32px 40px 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(201,168,76,0.04) 40px, rgba(201,168,76,0.04) 41px);
+  }
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 40px; right: 40px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+  .header-inner { max-width: 900px; margin: 0 auto; position: relative; }
+  .header-tag { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--gold); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; opacity: 0.8; }
+  h1 { font-family: 'Playfair Display', serif; font-size: clamp(26px, 4vw, 38px); color: #fff; line-height: 1.15; font-weight: 700; }
+  h1 em { color: var(--gold); font-style: italic; }
+  .header-sub { margin-top: 8px; font-size: 15px; color: rgba(255,255,255,0.55); font-weight: 300; font-style: italic; }
+  .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+  .criteria-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 36px 0 28px; }
+  .criterion { background: var(--cream); border: 1px solid var(--border); border-left: 4px solid var(--gold); border-radius: 6px; padding: 18px 20px; display: flex; align-items: flex-start; gap: 14px; }
+  .criterion-icon { font-family: 'Playfair Display', serif; font-size: 26px; color: var(--gold); line-height: 1; font-weight: 900; flex-shrink: 0; }
+  .criterion-text strong { display: block; font-size: 13px; font-family: 'JetBrains Mono', monospace; color: var(--ink); letter-spacing: 0.5px; margin-bottom: 4px; }
+  .criterion-text span { font-size: 13px; color: var(--muted); font-style: italic; }
+  .controls { display: flex; gap: 14px; align-items: center; margin-bottom: 28px; flex-wrap: wrap; }
+  .btn-generate { font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; color: var(--ink); background: var(--gold); border: none; border-radius: 6px; padding: 12px 28px; cursor: pointer; letter-spacing: 0.3px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(201,168,76,0.35); }
+  .btn-generate:hover { background: #b8953e; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(201,168,76,0.4); }
+  .btn-generate:active { transform: translateY(0); }
+  .btn-reset { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: var(--muted); background: transparent; border: 1.5px solid var(--border); border-radius: 6px; padding: 10px 18px; cursor: pointer; letter-spacing: 0.5px; transition: all 0.2s; }
+  .btn-reset:hover { color: var(--reject); border-color: var(--reject); background: var(--reject-bg); }
+  .score-display { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--muted); display: flex; gap: 18px; }
+  .score-item strong { color: var(--ink); font-size: 18px; display: block; text-align: center; }
+  .score-item span { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  .table-wrapper { background: #fff; border-radius: 10px; box-shadow: 0 4px 24px var(--shadow); overflow: hidden; border: 1px solid var(--border); margin-bottom: 28px; }
+  .table-title { background: var(--ink); color: #fff; padding: 14px 24px; font-family: 'Playfair Display', serif; font-size: 16px; font-style: italic; font-weight: 700; letter-spacing: 0.3px; display: flex; align-items: center; gap: 10px; }
+  .table-title::before { content: '\00a7'; color: var(--gold); font-size: 20px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--cream); border-bottom: 2px solid var(--border); }
+  th { padding: 14px 16px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); text-align: left; }
+  th.num { text-align: right; }
+  th.center { text-align: center; }
+  tbody tr { border-bottom: 1px solid var(--cream); transition: background 0.15s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafaf8; }
+  td { padding: 16px 16px; font-size: 14.5px; vertical-align: middle; }
+  td.hip-cell { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 13px; color: var(--muted); }
+  td.rel-cell { font-size: 14px; line-height: 1.45; color: var(--ink); max-width: 260px; }
+  td.rel-cell .arrow { color: var(--gold); font-weight: 700; margin: 0 6px; }
+  td.num { font-family: 'JetBrains Mono', monospace; font-size: 14px; text-align: right; font-weight: 600; color: var(--ink); }
+  td.pval { font-family: 'JetBrains Mono', monospace; font-size: 14px; text-align: right; font-weight: 700; }
+  td.center { text-align: center; }
+  .answer-group { display: flex; gap: 8px; justify-content: center; align-items: center; }
+  .btn-answer { font-family: 'Source Serif 4', serif; font-size: 13px; font-weight: 600; border: 2px solid; border-radius: 5px; padding: 7px 14px; cursor: pointer; transition: all 0.18s; white-space: nowrap; }
+  .btn-accept { color: var(--accept); border-color: var(--accept); background: transparent; }
+  .btn-accept:hover { background: var(--accept-bg); transform: translateY(-1px); }
+  .btn-reject { color: #fff; border-color: var(--reject); background: var(--reject); }
+  .btn-reject:hover { background: #6e1111; border-color: #6e1111; transform: translateY(-1px); }
+  .btn-answer.correct { background: var(--accept-bg) !important; border-color: var(--accept) !important; color: var(--accept) !important; cursor: default; transform: none !important; }
+  .btn-answer.incorrect { opacity: 0.35; cursor: default; transform: none !important; }
+  .btn-answer.reveal { background: var(--accept-bg) !important; border-color: var(--accept) !important; color: var(--accept) !important; cursor: default; }
+  .btn-answer.reveal-reject { background: var(--reject-bg) !important; border-color: var(--reject) !important; color: var(--reject) !important; cursor: default; }
+  .btn-answer:disabled { cursor: default; }
+  .progress-bar-wrap { background: var(--cream); border-radius: 4px; height: 6px; overflow: hidden; margin-bottom: 28px; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--gold), #e8a030); border-radius: 4px; transition: width 0.4s ease; }
+  .feedback-panel { border-radius: 8px; padding: 20px 24px; margin-bottom: 12px; border-left: 5px solid; display: none; }
+  .feedback-panel.show { display: block; animation: slideIn 0.35s ease; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  .feedback-panel.correct-fb { background: var(--accept-bg); border-color: var(--accept); }
+  .feedback-panel.incorrect-fb { background: var(--reject-bg); border-color: var(--reject); }
+  .fb-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .fb-icon { font-size: 22px; }
+  .fb-title { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 700; }
+  .correct-fb .fb-title { color: var(--accept); }
+  .incorrect-fb .fb-title { color: var(--reject); }
+  .fb-body { font-size: 14px; line-height: 1.65; color: #333; }
+  .fb-body strong { color: var(--ink); }
+  .formula { font-family: 'JetBrains Mono', monospace; background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  .empty-state { text-align: center; padding: 60px 24px; color: var(--muted); font-style: italic; font-size: 16px; }
+  .empty-icon { font-size: 48px; margin-bottom: 14px; opacity: 0.4; display: block; }
+  .footer-note { text-align: center; font-size: 12px; color: var(--muted); font-style: italic; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+  @media (max-width: 640px) {
+    .criteria-panel { grid-template-columns: 1fr; }
+    header { padding: 24px 20px; }
+    .container { padding: 0 16px; }
+    th, td { padding: 12px 8px; font-size: 12px; }
+    .btn-answer { font-size: 12px; padding: 6px 10px; }
+    .score-display { margin-left: 0; width: 100%; justify-content: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-tag">Metodología de la Investigación &middot; PLS-SEM</div>
+    <h1>Simulador de <em>Prueba de Hipótesis</em></h1>
+    <p class="header-sub">Practica la toma de decisiones con p-valor y T-valor en modelos explicativos</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="criteria-panel">
+    <div class="criterion">
+      <div class="criterion-icon">p</div>
+      <div class="criterion-text">
+        <strong>Criterio del P-Valor</strong>
+        <span>Si <b>p &lt; 0.05</b> &rarr; hipótesis <b>se acepta</b> (relación significativa)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <div class="criterion-icon">T</div>
+      <div class="criterion-text">
+        <strong>Criterio del T-Valor</strong>
+        <span>Si <b>T &gt; 1.96</b> &rarr; hipótesis <b>se acepta</b> (relación significativa)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-generate" onclick="generateExercise()">&#8635;&nbsp; Nueva hipótesis aleatoria</button>
+    <button class="btn-reset" onclick="resetScore()">&#8634;&nbsp; Reset puntaje</button>
+    <div class="score-display">
+      <div class="score-item">
+        <strong id="sc-correct">0</strong>
+        <span>Correctas</span>
+      </div>
+      <div class="score-item">
+        <strong id="sc-wrong">0</strong>
+        <span>Errores</span>
+      </div>
+      <div class="score-item">
+        <strong id="sc-total">0</strong>
+        <span>Total</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+
+  <div id="feedback-panel" class="feedback-panel">
+    <div class="fb-header">
+      <span class="fb-icon" id="fb-icon"></span>
+      <span class="fb-title" id="fb-title"></span>
+    </div>
+    <div class="fb-body" id="fb-body"></div>
+  </div>
+
+  <div class="table-wrapper">
+    <div class="table-title">Prueba de hipótesis</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Hip</th>
+          <th>Ruta o relación explicativa</th>
+          <th class="num">Valor &#946;</th>
+          <th class="num">Desv st</th>
+          <th class="num">T valor</th>
+          <th class="num">P Valor</th>
+          <th class="center">Determinación</th>
+        </tr>
+      </thead>
+      <tbody id="table-body">
+        <tr>
+          <td colspan="7">
+            <div class="empty-state">
+              <span class="empty-icon">&#127922;</span>
+              Presiona <strong>«Nueva hipótesis aleatoria»</strong> para comenzar
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer-note">
+    Ciencias Sociales &middot; &alpha; = 0.05 &middot; Bootstrapping PLS-SEM &middot; T bilateral = 1.96
+  </div>
+
+</div>
+
+<script>
+var relaciones = [
+  { var1: "Clima laboral",              var2: "Desempenio laboral",              area: "Recursos Humanos" },
+  { var1: "Liderazgo transformacional", var2: "Empoderamiento del colaborador",  area: "Recursos Humanos" },
+  { var1: "Motivacion intrinseca",      var2: "Productividad laboral",           area: "Recursos Humanos" },
+  { var1: "Satisfaccion laboral",       var2: "Rotacion de personal",            area: "Recursos Humanos" },
+  { var1: "Capacitacion continua",      var2: "Desempenio organizacional",       area: "Recursos Humanos" },
+  { var1: "Comunicacion interna",       var2: "Compromiso organizacional",       area: "Recursos Humanos" },
+  { var1: "Inteligencia emocional",     var2: "Liderazgo efectivo",              area: "Recursos Humanos" },
+  { var1: "Cultura organizacional",     var2: "Innovacion interna",              area: "Recursos Humanos" },
+  { var1: "Estres laboral",             var2: "Rendimiento del trabajador",      area: "Recursos Humanos" },
+  { var1: "Gestion del talento",        var2: "Retencion de colaboradores",      area: "Recursos Humanos" },
+  { var1: "Trabajo en equipo",          var2: "Eficiencia operativa",            area: "Recursos Humanos" },
+  { var1: "Reconocimiento laboral",     var2: "Compromiso afectivo",             area: "Recursos Humanos" },
+  { var1: "Marketing digital",          var2: "Ventas en linea",                 area: "Marketing" },
+  { var1: "Redes sociales",             var2: "Posicionamiento de marca",        area: "Marketing" },
+  { var1: "Calidad de servicio",        var2: "Fidelizacion del cliente",        area: "Marketing" },
+  { var1: "Experiencia del cliente",    var2: "Lealtad de marca",                area: "Marketing" },
+  { var1: "Marketing de contenidos",    var2: "Generacion de leads",             area: "Marketing" },
+  { var1: "Publicidad en redes",        var2: "Intencion de compra",             area: "Marketing" },
+  { var1: "Imagen corporativa",         var2: "Confianza del consumidor",        area: "Marketing" },
+  { var1: "Estrategia de precios",      var2: "Participacion de mercado",        area: "Marketing" },
+  { var1: "Influencer marketing",       var2: "Reconocimiento de marca",         area: "Marketing" },
+  { var1: "Sistema de control interno", var2: "Desempenio organizacional",       area: "Administracion" },
+  { var1: "Gestion estrategica",        var2: "Competitividad empresarial",      area: "Administracion" },
+  { var1: "Toma de decisiones",         var2: "Eficacia gerencial",              area: "Administracion" },
+  { var1: "Responsabilidad social",     var2: "Reputacion empresarial",          area: "Administracion" },
+  { var1: "Innovacion tecnologica",     var2: "Ventaja competitiva",             area: "Administracion" },
+  { var1: "Planificacion estrategica",  var2: "Cumplimiento de metas",           area: "Administracion" },
+  { var1: "Gobierno corporativo",       var2: "Desempenio financiero",           area: "Administracion" }
+];
+
+var correct = 0, wrong = 0, total = 0, answered = false;
+
+function resetScore() {
+  correct = 0; wrong = 0; total = 0;
+  document.getElementById('sc-correct').textContent = '0';
+  document.getElementById('sc-wrong').textContent   = '0';
+  document.getElementById('sc-total').textContent   = '0';
+  document.getElementById('progress-fill').style.width = '0%';
+}
+
+function rand(min, max, dec) {
+  dec = (dec === undefined) ? 3 : dec;
+  return parseFloat((Math.random() * (max - min) + min).toFixed(dec));
+}
+
+function fmt(n, dec) {
+  dec = (dec === undefined) ? 3 : dec;
+  return n.toFixed(dec).replace('.', ',');
+}
+
+function generateExercise() {
+  var rel = relaciones[Math.floor(Math.random() * relaciones.length)];
+  var isSignificant = Math.random() > 0.5;
+
+  var beta = isSignificant ? rand(0.25, 0.85) : rand(0.02, 0.24);
+  var desv = rand(0.04, 0.18);
+  var tVal = isSignificant ? rand(2.1, 12.5)  : rand(0.3, 1.89);
+  var pVal = isSignificant ? rand(0.001, 0.049) : rand(0.051, 0.48);
+
+  answered = false;
+
+  var tbody = document.getElementById('table-body');
+  tbody.dataset.rel1        = rel.var1;
+  tbody.dataset.rel2        = rel.var2;
+  tbody.dataset.area        = rel.area;
+  tbody.dataset.beta        = beta.toFixed(3);
+  tbody.dataset.tval        = tVal.toFixed(3);
+  tbody.dataset.pval        = pVal.toFixed(3);
+  tbody.dataset.significant = isSignificant ? '1' : '0';
+
+  tbody.innerHTML =
+    '<tr>' +
+      '<td class="hip-cell">H1</td>' +
+      '<td class="rel-cell">' +
+        rel.var1 + ' <span class="arrow">&rarr;</span> ' + rel.var2 +
+        '<br><small style="color:var(--muted);font-style:italic;font-size:12px">' + rel.area + '</small>' +
+      '</td>' +
+      '<td class="num">'  + fmt(beta) + '</td>' +
+      '<td class="num">'  + fmt(desv) + '</td>' +
+      '<td class="num" id="td-tval">' + fmt(tVal) + '</td>' +
+      '<td class="pval" id="td-pval">' + fmt(pVal) + '</td>' +
+      '<td class="center">' +
+        '<div class="answer-group">' +
+          '<button class="btn-answer btn-accept" id="btn-accept" onclick="checkAnswer(true)">Se acepta</button>' +
+          '<button class="btn-answer btn-reject" id="btn-reject" onclick="checkAnswer(false)">Se rechaza</button>' +
+        '</div>' +
+      '</td>' +
+    '</tr>';
+
+  var panel = document.getElementById('feedback-panel');
+  panel.className = 'feedback-panel';
+}
+
+function checkAnswer(userSaysAccept) {
+  if (answered) return;
+  answered = true;
+
+  var tbody = document.getElementById('table-body');
+  var isSignificant = (tbody.dataset.significant === '1');
+  var var1 = tbody.dataset.rel1;
+  var var2 = tbody.dataset.rel2;
+  var area = tbody.dataset.area;
+  var beta = tbody.dataset.beta.replace('.', ',');
+  var tval = parseFloat(tbody.dataset.tval).toFixed(3).replace('.', ',');
+  var pval = parseFloat(tbody.dataset.pval).toFixed(3).replace('.', ',');
+
+  var userCorrect = (userSaysAccept === isSignificant);
+
+  total++;
+  if (userCorrect) { correct++; } else { wrong++; }
+  document.getElementById('sc-correct').textContent = correct;
+  document.getElementById('sc-wrong').textContent   = wrong;
+  document.getElementById('sc-total').textContent   = total;
+  document.getElementById('progress-fill').style.width = Math.round((correct / total) * 100) + '%';
+
+  var sigColor = isSignificant ? '#1e6b45' : '#8b1a1a';
+  document.getElementById('td-pval').style.color = sigColor;
+  document.getElementById('td-tval').style.color = sigColor;
+
+  var btnA = document.getElementById('btn-accept');
+  var btnR = document.getElementById('btn-reject');
+  btnA.disabled = true;
+  btnR.disabled = true;
+
+  if (isSignificant) {
+    btnA.className = 'btn-answer btn-accept ' + (userSaysAccept ? 'correct' : 'reveal');
+    if (!userSaysAccept) btnR.className = 'btn-answer btn-reject incorrect';
+  } else {
+    btnR.className = 'btn-answer btn-reject ' + (!userSaysAccept ? 'correct' : 'reveal-reject');
+    if (userSaysAccept) btnA.className = 'btn-answer btn-accept incorrect';
+  }
+
+  var panel  = document.getElementById('feedback-panel');
+  var fbIcon = document.getElementById('fb-icon');
+  var fbTitle= document.getElementById('fb-title');
+  var fbBody = document.getElementById('fb-body');
+
+  if (userCorrect) {
+    panel.className = 'feedback-panel correct-fb show';
+    fbIcon.textContent = '🎯';
+    fbTitle.textContent = '¡Correcto!';
+    if (isSignificant) {
+      fbBody.innerHTML =
+        '<strong>Decisión:</strong> La hipótesis H1 <em>se acepta</em>.<br><br>' +
+        '<strong>Interpretación:</strong> Los resultados evidencian que <em>' + var1 + '</em> tiene un efecto explicativo positivo y significativo sobre <em>' + var2 + '</em> ' +
+        '(&#946; = ' + beta + '; T = ' + tval + '; p = ' + pval + '). ' +
+        'Dado que el <span class="formula">p-valor (' + pval + ') &lt; 0.05</span> y el <span class="formula">T-valor (' + tval + ') &gt; 1.96</span>, ' +
+        'se concluye que existe una relación causal estadísticamente significativa entre ambas variables en el contexto de <em>' + area + '</em>. ' +
+        'Esto implica que cambios en <em>' + var1 + '</em> predicen de forma significativa variaciones en <em>' + var2 + '</em>.';
+    } else {
+      fbBody.innerHTML =
+        '<strong>Decisión:</strong> La hipótesis H1 <em>se rechaza</em>.<br><br>' +
+        '<strong>Interpretación:</strong> Los resultados indican que <em>' + var1 + '</em> no tiene un efecto explicativo significativo sobre <em>' + var2 + '</em> ' +
+        '(&#946; = ' + beta + '; T = ' + tval + '; p = ' + pval + '). ' +
+        'Dado que el <span class="formula">p-valor (' + pval + ') &gt; 0.05</span> y el <span class="formula">T-valor (' + tval + ') &lt; 1.96</span>, ' +
+        'no existe evidencia estadística suficiente para sostener una relación causal en el contexto de <em>' + area + '</em>. ' +
+        'El efecto observado podría atribuirse al azar.';
+    }
+  } else {
+    panel.className = 'feedback-panel incorrect-fb show';
+    fbIcon.textContent = '💡';
+    fbTitle.textContent = 'Incorrecto — revisemos los criterios';
+    if (isSignificant) {
+      fbBody.innerHTML =
+        '<strong>La respuesta correcta era:</strong> <em>Se acepta</em>.<br><br>' +
+        'Observa que <span class="formula">p = ' + pval + '</span> es <strong>menor a 0.05</strong> ' +
+        'y que <span class="formula">T = ' + tval + '</span> es <strong>mayor a 1.96</strong>. ' +
+        'Ambos criterios coinciden: la relación <em>' + var1 + ' &rarr; ' + var2 + '</em> es estadísticamente significativa. ' +
+        'Cuando <strong>ambos criterios se cumplen</strong>, la hipótesis se acepta.';
+    } else {
+      fbBody.innerHTML =
+        '<strong>La respuesta correcta era:</strong> <em>Se rechaza</em>.<br><br>' +
+        'Observa que <span class="formula">p = ' + pval + '</span> es <strong>mayor a 0.05</strong> ' +
+        'y que <span class="formula">T = ' + tval + '</span> es <strong>menor a 1.96</strong>. ' +
+        'Ninguno de los criterios respalda la significancia estadística, por lo tanto ' +
+        'la hipótesis <em>' + var1 + ' &rarr; ' + var2 + '</em> <strong>se rechaza</strong>.';
+    }
+  }
+
+  setTimeout(function() { panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 50);
+}
+</script>
+</body>
+</html>
